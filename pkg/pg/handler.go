@@ -58,6 +58,7 @@ func (ph *Handler) GrantRole(granteeName string, grantedName string) (err error)
 	}
 	return grantee.GrantRole(granted)
 }
+
 func (ph *Handler) CreateOrDropDatabases() (err error) {
 	for _, d := range ph.databases {
 		if d.State.Bool() {
@@ -93,6 +94,7 @@ func (ph *Handler) StrictifyRoles() (err error) {
 func (ph *Handler) StrictifyDatabases() (err error) {
 	return nil
 }
+
 func (ph *Handler) StrictifyExtensions() (err error) {
 	return nil
 }

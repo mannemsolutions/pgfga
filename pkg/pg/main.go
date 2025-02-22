@@ -3,8 +3,9 @@ package pg
 import (
 	"errors"
 	"fmt"
-	"go.uber.org/zap"
 	"strings"
+
+	"go.uber.org/zap"
 )
 
 var log *zap.SugaredLogger

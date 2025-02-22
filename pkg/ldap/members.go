@@ -24,12 +24,12 @@ type Member struct {
 }
 
 func validDn(dn string) bool {
-	var validDn = regexp.MustCompile(`^([a-zA-Z]+=[a-zA-Z0-9]+,)*[a-zA-Z]+=[a-zA-Z0-9]+$`)
+	validDn := regexp.MustCompile(`^([a-zA-Z]+=[a-zA-Z0-9]+,)*[a-zA-Z]+=[a-zA-Z0-9]+$`)
 	return validDn.MatchString(dn)
 }
 
 func validLdapPair(pair string) (isValid bool) {
-	var validPair = regexp.MustCompile(`^[a-zA-Z]+=[a-zA-Z0-9]+$`)
+	validPair := regexp.MustCompile(`^[a-zA-Z]+=[a-zA-Z0-9]+$`)
 	return validPair.MatchString(pair)
 }
 
@@ -169,7 +169,7 @@ func (ms Members) GetById(Id string, AddWhenMissing bool) (m *Member, err error)
 		return &Member{}, nil
 	}
 	// ms is not a *Members, cause Members is already a points (map[string]Member).
-	//So check if after leaving this method, that ms actually still holds the new values
+	// So check if after leaving this method, that ms actually still holds the new values
 	ms[m.name] = m
 	ms[m.pair] = m
 	ms[m.dn] = m

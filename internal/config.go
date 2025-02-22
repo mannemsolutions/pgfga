@@ -3,12 +3,13 @@ package internal
 import (
 	"flag"
 	"fmt"
-	"github.com/mannemsolutions/pgfga/pkg/ldap"
-	"github.com/mannemsolutions/pgfga/pkg/pg"
-	"go.uber.org/zap/zapcore"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/mannemsolutions/pgfga/pkg/ldap"
+	"github.com/mannemsolutions/pgfga/pkg/pg"
+	"go.uber.org/zap/zapcore"
 
 	"gopkg.in/yaml.v2"
 )

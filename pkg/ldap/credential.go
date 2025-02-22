@@ -19,7 +19,7 @@ func isExecutable(filename string) (isExecutable bool, err error) {
 		return false, err
 	}
 	mode := fi.Mode()
-	return mode&0111 == 0111, nil
+	return mode&0o111 == 0o111, nil
 }
 
 func fromExecutable(filename string) (value string, err error) {

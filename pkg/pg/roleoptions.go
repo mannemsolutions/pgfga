@@ -51,6 +51,7 @@ func (opt RoleOption) Sql() (sql string) {
 	}
 	return fmt.Sprintf("not %s", opt.sql)
 }
+
 func (opt RoleOption) Inverse() (invOpt RoleOption) {
 	return RoleOption{
 		name:    opt.name,
@@ -59,16 +60,14 @@ func (opt RoleOption) Inverse() (invOpt RoleOption) {
 	}
 }
 
-var (
-	ValidRoleOptions = map[string]string{
-		"SUPERUSER":   "rolsuper",
-		"CREATEROLE ": "rolcreaterole",
-		"CREATEUSER":  "rolcreaterole",
-		"INHERIT":    "rolinherit",
-		"LOGIN":       "rolcanlogin",
-		"REPLICATION": "rolreplication",
-	}
-)
+var ValidRoleOptions = map[string]string{
+	"SUPERUSER":   "rolsuper",
+	"CREATEROLE ": "rolcreaterole",
+	"CREATEUSER":  "rolcreaterole",
+	"INHERIT":     "rolinherit",
+	"LOGIN":       "rolcanlogin",
+	"REPLICATION": "rolreplication",
+}
 
 // MarshalYAML marshals the enum as a quoted json string
 func (opt RoleOption) MarshalYAML() (interface{}, error) {
@@ -108,5 +107,5 @@ func (ro RoleOptions) AddOption(opt RoleOption) {
 var (
 	LoginOption, _ = NewRoleOption("LOGIN")
 	LoginOptions   = RoleOptions{LoginOption.name: LoginOption}
-	//EmptyOptions RoleOptions
+	// EmptyOptions RoleOptions
 )

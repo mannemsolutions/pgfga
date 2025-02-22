@@ -1,22 +1,22 @@
-version: "3.9"  # optional since v1.27.0
+version: '3.9' # optional since v1.27.0
 services:
   phpldapadmin:
     image: osixia/phpldapadmin
     environment:
       PHPLDAPADMIN_LDAP_HOSTS: ldap
-      PHPLDAPADMIN_HTTPS: "false"
+      PHPLDAPADMIN_HTTPS: 'false'
     ports:
-      - "6443:433"
-      - "8080:80"
+      - '6443:433'
+      - '8080:80'
   ldap:
     image: osixia/openldap
     command:
-      - "--copy-service"
-      - "--loglevel"
+      - '--copy-service'
+      - '--loglevel'
       - debug
     ports:
-      - "389:389"
-      - "636:636"
+      - '389:389'
+      - '636:636'
     environment:
       LDAP_ORGANISATION: pgfga
       LDAP_DOMAIN: pgfga.org
@@ -26,7 +26,7 @@ services:
   postgres:
     image: postgres:13
     ports:
-      - "5432:5432"
+      - '5432:5432'
     environment:
       POSTGRES_HOST_AUTH_METHOD: 'ldap ldapserver=ldap ldapprefix="uid=" ldapsuffix=",ou=users,dc=pgfga,dc=org"'
       POSTGRES_PASSWORD: not_this_but_in_ldap
@@ -36,8 +36,15 @@ services:
       - pgtester
       - /host/testdata/pgtester/tests.yaml
     volumes:
-    - ./:/host
+      - ./:/host
   pgfga:
     build: .
     environment:
       PGFGACONFIG: /etc/pgfga/config.yaml
+  unittests:
+    image: golang:bookworm
+    command: |
+      /host/scripts/unittests.sh
+    #  sh -c "while true; do sleep 10; done"
+    volumes:
+      - ./:/host

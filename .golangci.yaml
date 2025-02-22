@@ -1,0 +1,107 @@
+issues:
+  exclude:
+    - SA1019
+    - SA5011
+  max-issues-per-linter: 0
+  max-same-issues: 0
+linters:
+  enable:
+    - errcheck
+    - errorlint
+    - ginkgolinter
+    - gocritic
+    - gofumpt
+    - goimports
+    - gosec
+    - gosimple
+    - govet
+    - ineffassign
+    - misspell
+    - revive
+    - staticcheck
+    - testifylint
+    - unused
+    - whitespace
+linters-settings:
+  gocritic:
+    disabled-checks:
+      - appendAssign
+      - assignOp # Keep it disabled for readability
+      - badCond
+      - commentFormatting
+      - exitAfterDefer
+      - ifElseChain
+      - mapKey
+      - singleCaseSwitch
+      - typeSwitchVar
+  testifylint:
+    enable-all: true
+    disable:
+      - go-require
+  revive:
+    enable-all-rules: true
+    rules:
+      - name: add-constant
+        arguments:
+          - allowStrs: '""'
+            allowInts: '0,1,2,3'
+            ignoreFuncs: "assert\\.Len"
+            maxLitCount: '5'
+      - name: line-length-limit
+        severity: warning
+        disabled: false
+        exclude: ['']
+        arguments: [120]
+      - name: bare-return
+        disabled: true
+      - name: cognitive-complexity
+        disabled: true
+      - name: comment-spacings
+        disabled: true
+      - name: context-as-argument
+        disabled: true
+      - name: cyclomatic
+        disabled: true
+      - name: dot-imports
+        disabled: true
+      - name: early-return
+        disabled: true
+      - name: empty-block
+        disabled: true
+      - name: empty-lines
+        disabled: true
+      - name: exported
+        disabled: true
+      - name: function-length
+        disabled: true
+      - name: if-return
+        disabled: true
+      - name: import-alias-naming
+        disabled: true
+      - name: import-shadowing
+        disabled: true
+      - name: increment-decrement
+        disabled: true
+      - name: max-control-nesting
+        disabled: true
+      - name: max-public-structs
+        disabled: true
+      - name: redefines-builtin-id
+        disabled: true
+      - name: receiver-naming
+        disabled: true
+      - name: redundant-import-alias
+        disabled: true
+      - name: struct-tag
+        disabled: true
+      - name: superfluous-else
+        disabled: true
+      - name: unchecked-type-assertion
+        disabled: true
+      - name: unexported-naming
+        disabled: true
+
+      #- name: cognitive-complexity
+      #  arguments: [20]
+run:
+  timeout: 50m

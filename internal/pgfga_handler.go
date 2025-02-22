@@ -2,12 +2,13 @@ package internal
 
 import (
 	"fmt"
+	"os"
+	"time"
+
 	"github.com/mannemsolutions/pgfga/pkg/ldap"
 	"github.com/mannemsolutions/pgfga/pkg/pg"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"os"
-	"time"
 )
 
 var (
@@ -185,6 +186,7 @@ func (pfh PgFgaHandler) HandleRoles() (err error) {
 	}
 	return nil
 }
+
 func (pfh PgFgaHandler) HandleSlots() (err error) {
 	return pfh.pg.CreateOrDropSlots()
 }

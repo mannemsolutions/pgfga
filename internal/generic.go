@@ -9,7 +9,10 @@ import (
 func PrettyPrint(v interface{}) (err error) {
 	b, err := json.MarshalIndent(v, "", "  ")
 	if err == nil {
-		fmt.Println(string(b))
+		_, err := fmt.Println(string(b))
+		if err != nil {
+			return err
+		}
 	}
 	return
 }

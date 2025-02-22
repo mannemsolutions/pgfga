@@ -1,0 +1,108 @@
+name: CI run on PR
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+env:
+  # Golang version to use across CI steps
+  GOLANG_VERSION: '1.23' # As we have go toolchain 1.23 specified in go.mod
+
+permissions:
+  contents: read
+
+jobs:
+  codechanges:
+    runs-on: ubuntu-22.04
+    outputs:
+      backend: ${{ steps.filter.outputs.backend_any_changed }}
+    steps:
+      - uses: actions/checkout@8410ad0602e1e429cee44a835ae9f77f654a6694 # v4.0.0
+      - uses: tj-actions/changed-files@e9772d140489982e0e3704fea5ee93d536f1e275 # v45.0.1
+        id: filter
+        with:
+          # Any file which is not under docs/ or is not a markdown file is counted as a backend file
+          files_yaml: |
+            backend:
+              - go.mod
+              - go.sum
+              - '**.go'
+              - '.github/workflows/ci-build.yaml'
+
+  check-go:
+    name: Ensure Go modules synchronicity
+    runs-on: ubuntu-22.04
+    if: ${{ needs.codechanges.outputs.backend == 'true' && github.event.pull_request.draft == false}}
+    needs:
+      - codechanges
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@8410ad0602e1e429cee44a835ae9f77f654a6694 # v4.0.0
+      - name: Setup Golang
+        uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
+        with:
+          go-version: ${{ env.GOLANG_VERSION }}
+      - name: Download all Go modules
+        run: |
+          go mod download
+      - name: Check for tidiness of go.mod and go.sum
+        run: |
+          go mod tidy
+          git diff --exit-code -- .
+
+  lint-go:
+    name: Lint Go code
+    runs-on: ubuntu-22.04
+    if: ${{ needs.codechanges.outputs.backend == 'true' && github.event.pull_request.draft == false}}
+    needs:
+      - codechanges
+    permissions:
+      contents: read # for actions/checkout to fetch code
+      pull-requests: read # for golangci/golangci-lint-action to fetch pull requests
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@8410ad0602e1e429cee44a835ae9f77f654a6694 # v4.0.0
+      - name: Setup Golang
+        uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
+        with:
+          go-version: ${{ env.GOLANG_VERSION }}
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@aaa42aa0628b4ae2578232a66b541047968fac86 # v6.1.0
+        with:
+          version: v1.60.3
+          args: --verbose
+
+  unittests:
+    name: Run unit- and integration tests
+    runs-on: ubuntu-22.04
+    if: ${{ needs.codechanges.outputs.backend == 'true' && github.event.pull_request.draft == false}}
+    needs:
+      - codechanges
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Setup Golang
+        uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
+        with:
+          go-version: ${{ env.GOLANG_VERSION }}
+      - name: update to docker-compose v2
+        run: |
+          sudo apt-get install -y curl
+          sudo curl -SL https://github.com/docker/compose/releases/download/v2.3.3/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose
+          sudo chmod +x /usr/local/bin/docker-compose
+      - name: compose
+        run: |
+          docker-compose --version
+          echo $PGVERSION
+      - name: vault
+        run: |
+          docker-compose up -d ldap postgres
+      - name: pgfga
+        id: pgfga
+        run: |
+          docker-compose up pgfga --exit-code-from pgfga
+      - name: Integration tests
+        run: |
+          docker-compose up pgtester --exit-code-from pgtester
+      - name: unittests
+        run: |
+          docker-compose up unittests --exit-code-from unittests

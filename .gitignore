@@ -3,5 +3,6 @@ bvvconfig.yaml
 /bvv_moneymaker
 
 vendor/
+cover.out
 
 pgfga

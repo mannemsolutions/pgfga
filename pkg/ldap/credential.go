@@ -45,41 +45,36 @@ func fromFile(filename string) (value string, err error) {
 	// The intent is to give an option to retrieve a password from a file.
 	// As such opening a file which name is set by a variable is sort of the point.
 	// #nosec
-	file, err := os.Open(filename) // For read access.
+	data, err := os.ReadFile(filename)
 	if err != nil {
 		return "", err
-	}
-	data := make([]byte, 100)
-	count, err := file.Read(data)
-	if err != nil {
-		return "", err
-	}
-	if count == 0 {
-		return "", fmt.Errorf("file %s is empty", filename)
 	}
 	return string(data[:]), nil
 }
 
-func (c *Credential) GetCred() (value string, err error) {
-	if c.Value != "" {
-	} else if c.File != "" {
-		c.Value, err = fromFile(c.File)
-		if err != nil {
-			return "", err
-		}
-	} else {
+func (c *Credential) GetCred() (string, error) {
+	var err error
+	if c.Value == "" && c.File == "" {
 		return "", fmt.Errorf("either value or file must be set in a credential")
 	}
+	if c.Value == "" {
+		if c.Value, err = fromFile(c.File); err != nil {
+			return "", err
+		}
+	}
+	if c.Value == "" {
+		return "", fmt.Errorf("credential file is empty")
+	}
 	if c.Base64 {
-		data, err := base64.StdEncoding.DecodeString(value)
+		data, err := base64.StdEncoding.DecodeString(c.Value)
 		if err != nil {
 			return "", err
 		}
 		c.Value = string(data)
 		c.Base64 = false
+		if c.Value == "" {
+			return "", fmt.Errorf("empty credential after base64 decryption")
+		}
 	}
-	if c.Value != "" {
-		return c.Value, nil
-	}
-	return "", fmt.Errorf("credentials file is empty")
+	return c.Value, nil
 }

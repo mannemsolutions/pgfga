@@ -31,7 +31,7 @@ services:
       POSTGRES_HOST_AUTH_METHOD: 'ldap ldapserver=ldap ldapprefix="uid=" ldapsuffix=",ou=users,dc=pgfga,dc=org"'
       POSTGRES_PASSWORD: not_this_but_in_ldap
   pgtester:
-    image: ghcr.io/pgvillage/pgtester
+    image: ghcr.io/pgvillage-tools/pgtester
     command:
       - pgtester
       - /host/testdata/pgtester/tests.yaml

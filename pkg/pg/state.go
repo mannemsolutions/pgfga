@@ -35,17 +35,18 @@ func (s State) String() string {
 	return "Present"
 }
 
+// Bool returns true for present and false for absent
 func (s State) Bool() bool {
-	return s.value != stateAbsent
+	return s.value == statePresent
 }
 
 // MarshalYAML marshals the enum as a quoted json string
-func (s State) MarshalYAML() (interface{}, error) {
+func (s State) MarshalYAML() (any, error) {
 	return s.String(), nil
 }
 
 // UnmarshalYAML converts a yaml string to the enum value
-func (s *State) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (s *State) UnmarshalYAML(unmarshal func(any) error) error {
 	var str string
 	if err := unmarshal(&str); err != nil {
 		return err

@@ -13,28 +13,34 @@ import (
 	"github.com/jackc/pgx/v4"
 )
 
+const (
+	md5PasswordLength = 35
+	md5PasswordPrefix = "md5"
+)
+
+// Roles is a map of all roles that should be created
 type Roles map[string]Role
 
+// Role is a struct to hold all important info about one PostgreSQL role
 type Role struct {
 	handler *Handler
 	name    string
-	options RoleOptions
+	options RoleOptionMap
 	State   State
 }
 
-func NewRole(handler *Handler, name string, options RoleOptions, state State) (r *Role, err error) {
-	role, exists := handler.roles[name]
+// NewRole returns a new Role object
+func NewRole(handler *Handler, name string, options RoleOptionMap, state State) (r *Role, err error) {
+	myRole, exists := handler.roles[name]
 	if exists {
-		if role.State.Bool() != state.Bool() {
+		if myRole.State.Bool() != state.Bool() {
 			if handler.strictOptions.Users {
-				return r, fmt.Errorf("cannot change state from %s to %s for existing role %s", state.String(),
-					role.State.String(), name)
+				return nil, fmt.Errorf("cannot change state from %s to %s for existing Role %s", state.String(),
+					myRole.State.String(), name)
 			}
 		}
-		for _, option := range options {
-			role.options[option.name] = option
-		}
-		return &role, nil
+		myRole.options = myRole.options.AbsoluteMerge(options)
+		return &myRole, nil
 	}
 	r = &Role{
 		handler: handler,
@@ -43,9 +49,9 @@ func NewRole(handler *Handler, name string, options RoleOptions, state State) (r
 		State:   state,
 	}
 	if state.Bool() {
-		err = r.Create()
+		err = r.create()
 	} else {
-		err = r.Drop()
+		err = r.drop()
 	}
 	if err != nil {
 		return r, err
@@ -54,14 +60,14 @@ func NewRole(handler *Handler, name string, options RoleOptions, state State) (r
 	return r, nil
 }
 
-func (r *Role) Drop() (err error) {
+func (r *Role) drop() (err error) {
 	ph := r.handler
 	c := ph.conn
 	if !ph.strictOptions.Users {
-		log.Infof("not dropping user/role %s (config.strict.roles is not True)", r.name)
+		log.Infof("not dropping user/Role %s (config.strict.Roles is not True)", r.name)
 		return nil
 	}
-	existsQuery := "SELECT rolname FROM pg_roles WHERE rolname = $1 AND rolname != CURRENT_USER"
+	existsQuery := "SELECT rolname FROM pg_Roles WHERE rolname = $1 AND rolname != CURRENT_USER"
 	exists, err := c.runQueryExists(existsQuery, r.name)
 	if err != nil {
 		return err
@@ -73,7 +79,7 @@ func (r *Role) Drop() (err error) {
 	var dbname string
 	var newOwner string
 	query := `select db.datname, o.rolname as newOwner from pg_database db inner join 
-			  pg_roles o on db.datdba = o.oid where db.datname != 'template0'`
+			  pg_Roles o on db.datdba = o.oid where db.datname != 'template0'`
 	row := c.conn.QueryRow(context.Background(), query)
 	for {
 		scanErr := row.Scan(&dbname, &newOwner)
@@ -82,7 +88,7 @@ func (r *Role) Drop() (err error) {
 		} else if scanErr != nil {
 			return fmt.Errorf("error getting ReadOnly grants (qry: %s, err %s)", query, err)
 		}
-		dbConn := ph.GetDb(dbname).GetDbConnection()
+		dbConn := ph.getDb(dbname).getDbConnection()
 		err = dbConn.runQueryExec(fmt.Sprintf("REASSIGN OWNED BY %s TO %s", identifier(r.name), identifier(newOwner)))
 		if err != nil {
 			return err
@@ -94,13 +100,13 @@ func (r *Role) Drop() (err error) {
 		return err
 	}
 	r.State = Absent
-	log.Infof("Role '%s' succesfully dropped", r.name)
+	log.Infof("Role '%s' successfully dropped", r.name)
 	return nil
 }
 
-func (r Role) Create() (err error) {
+func (r Role) create() (err error) {
 	c := r.handler.conn
-	exists, err := c.runQueryExists("SELECT rolname FROM pg_roles WHERE rolname = $1", r.name)
+	exists, err := c.runQueryExists("SELECT rolname FROM pg_Roles WHERE rolname = $1", r.name)
 	if err != nil {
 		return err
 	}
@@ -109,9 +115,9 @@ func (r Role) Create() (err error) {
 		if err != nil {
 			return err
 		}
-		log.Infof("Role '%s' succesfully created", r.name)
+		log.Infof("Role '%s' successfully created", r.name)
 	}
-	for _, option := range r.options {
+	for option := range r.options {
 		err = r.setRoleOption(option)
 		if err != nil {
 			return err
@@ -122,8 +128,7 @@ func (r Role) Create() (err error) {
 
 func (r Role) setRoleOption(option RoleOption) (err error) {
 	c := r.handler.conn
-	optionSql := option.Sql()
-	exists, err := c.runQueryExists("SELECT rolname FROM pg_roles WHERE rolname = $1 AND "+optionSql, r.name)
+	exists, err := c.runQueryExists("SELECT rolname FROM pg_Roles WHERE rolname = $1 AND "+option.SQL(), r.name)
 	if err != nil {
 		return err
 	}
@@ -132,16 +137,17 @@ func (r Role) setRoleOption(option RoleOption) (err error) {
 		if err != nil {
 			return err
 		}
-		log.Debugf("Role '%s' succesfully altered with option '%s'", r.name, option)
+		log.Debugf("Role '%s' successfully altered with option '%s'", r.name, option)
 	}
 	return nil
 }
 
+// GrantRole can be used to grant a Role to another Role.
 func (r Role) GrantRole(grantedRole *Role) (err error) {
 	c := r.handler.conn
-	checkQry := `select granted.rolname granted_role 
-		from pg_auth_members auth inner join pg_roles 
-		granted on auth.roleid = granted.oid inner join pg_roles 
+	checkQry := `select granted.rolname granted_Role 
+		from pg_auth_members auth inner join pg_Roles 
+		granted on auth.Roleid = granted.oid inner join pg_Roles 
 		grantee on auth.member = grantee.oid where 
 		granted.rolname = $1 and grantee.rolname = $2`
 	exists, err := c.runQueryExists(checkQry, grantedRole.name, r.name)
@@ -153,18 +159,19 @@ func (r Role) GrantRole(grantedRole *Role) (err error) {
 		if err != nil {
 			return err
 		}
-		log.Infof("Role '%s' succesfully granted to user '%s'", grantedRole.name, r.name)
+		log.Infof("Role '%s' successfully granted to user '%s'", grantedRole.name, r.name)
 	} else {
 		log.Debugf("Role '%s' already granted to user '%s'", grantedRole.name, r.name)
 	}
 	return nil
 }
 
+// RevokeRole can be used to revoke a Role from another Role.
 func (r Role) RevokeRole(roleName string) (err error) {
 	c := r.handler.conn
-	checkQry := `select granted.rolname granted_role, grantee.rolname 
-		grantee_role from pg_auth_members auth inner join pg_roles 
-		granted on auth.roleid = granted.oid inner join pg_roles 
+	checkQry := `select granted.rolname granted_Role, grantee.rolname 
+		grantee_Role from pg_auth_members auth inner join pg_Roles 
+		granted on auth.Roleid = granted.oid inner join pg_Roles 
 		grantee on auth.member = grantee.oid where 
 		granted.rolname = $1 and grantee.rolname = $2 and grantee.rolname != CURRENT_USER`
 	exists, err := c.runQueryExists(checkQry, roleName, r.name)
@@ -176,41 +183,49 @@ func (r Role) RevokeRole(roleName string) (err error) {
 		if err != nil {
 			return err
 		}
-		log.Infof("Role '%s' succesfully revoked from user '%s'", roleName, r.name)
+		log.Infof("Role '%s' successfully revoked from user '%s'", roleName, r.name)
 	}
 	return nil
 }
 
+// SetPassword can be used to set a password for a user.
 func (r Role) SetPassword(password string) (err error) {
 	if password == "" {
 		return r.ResetPassword()
 	}
 	var hashedPassword string
-	if len(password) == 35 && strings.HasPrefix(password, "md5") {
+	if len(password) == md5PasswordLength && strings.HasPrefix(password, md5PasswordPrefix) {
 		hashedPassword = password
 	} else {
 		// #nosec
-		hashedPassword = fmt.Sprintf("md5%x", md5.Sum([]byte(password+r.name)))
+		hashedPassword = fmt.Sprintf("%s%x", md5PasswordPrefix, md5.Sum([]byte(password+r.name)))
 	}
 	c := r.handler.conn
-	checkQry := `SELECT rolname FROM pg_roles where rolname = $1
-			     and rolname not in (select usename from pg_shadow WHERE usename = $1
-					 AND COALESCE(passwd, '') = $2);`
+	checkQry := `
+	SELECT rolname 
+	FROM pg_Roles 
+	WHERE rolname = $1
+		AND rolname NOT IN (
+			SELECT usename 
+			FROM pg_shadow 
+			WHERE usename = $1
+			AND COALESCE(passwd, '') = $2);`
 	exists, err := c.runQueryExists(checkQry, r.name, hashedPassword)
 	if err != nil {
 		return err
 	}
 	if exists {
 		err = c.runQueryExec(fmt.Sprintf("ALTER ROLE %s WITH ENCRYPTED PASSWORD %s", identifier(r.name),
-			quotedSqlValue(hashedPassword)))
+			quotedSQLValue(hashedPassword)))
 		if err != nil {
 			return err
 		}
-		log.Infof("Succesfully set new password for user '%s'", r.name)
+		log.Infof("successfully set new password for user '%s'", r.name)
 	}
 	return nil
 }
 
+// ResetPassword can be used to reset the password of a PostgreSQL user
 func (r Role) ResetPassword() (err error) {
 	c := r.handler.conn
 	checkQry := `SELECT usename FROM pg_shadow WHERE usename = $1
@@ -224,11 +239,12 @@ func (r Role) ResetPassword() (err error) {
 		if err != nil {
 			return err
 		}
-		log.Infof("Succesfully removed password for user '%s'", r.name)
+		log.Infof("successfully removed password for user '%s'", r.name)
 	}
 	return nil
 }
 
+// SetExpiry can be used to define expiry on a PostgreSQL user
 func (r Role) SetExpiry(expiry time.Time) (err error) {
 	if expiry.IsZero() {
 		return r.ResetExpiry()
@@ -236,25 +252,30 @@ func (r Role) SetExpiry(expiry time.Time) (err error) {
 	formattedExpiry := expiry.Format(time.RFC3339)
 
 	c := r.handler.conn
-	checkQry := `SELECT rolname FROM pg_roles where rolname = $1 AND (rolvaliduntil IS NULL OR rolvaliduntil != $2);`
+	checkQry := `SELECT rolname FROM pg_Roles where rolname = $1 AND (rolvaliduntil IS NULL OR rolvaliduntil != $2);`
 	exists, err := c.runQueryExists(checkQry, r.name, formattedExpiry)
 	if err != nil {
 		return err
 	}
 	if exists {
 		err = c.runQueryExec(fmt.Sprintf("ALTER ROLE %s VALID UNTIL %s", identifier(r.name),
-			quotedSqlValue(formattedExpiry)))
+			quotedSQLValue(formattedExpiry)))
 		if err != nil {
 			return err
 		}
-		log.Infof("Succesfully set new expiry for user '%s'", r.name)
+		log.Infof("successfully set new expiry for user '%s'", r.name)
 	}
 	return nil
 }
 
+// ResetExpiry can be used to reset the expiry of a PostgreSQL User
 func (r Role) ResetExpiry() (err error) {
 	c := r.handler.conn
-	checkQry := `SELECT rolname FROM pg_roles where rolname = $1 AND rolvaliduntil IS NOT NULL AND rolvaliduntil != 'infinity';`
+	checkQry := `SELECT rolname
+	FROM pg_Roles
+	WHERE rolname = $1
+	AND rolvaliduntil IS NOT NULL
+	AND rolvaliduntil != 'infinity';`
 	exists, err := c.runQueryExists(checkQry, r.name)
 	if err != nil {
 		return err
@@ -264,7 +285,7 @@ func (r Role) ResetExpiry() (err error) {
 		if err != nil {
 			return err
 		}
-		log.Infof("Succesfully reset expiry for user '%s'", r.name)
+		log.Infof("successfully reset expiry for user '%s'", r.name)
 	}
 	return nil
 }

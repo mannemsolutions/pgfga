@@ -7,24 +7,27 @@ import (
 	"github.com/jackc/pgx/v4"
 )
 
+// Databases is a map of all known Database objects
 type Databases map[string]*Database
 
+// Database is a struct that can hold database information
 type Database struct {
 	// for DB's created from yaml, handler and name are set by the pg.Handler
 	handler *Handler
 	name    string
 	// conn is created from handler when required
 	conn       *Conn
-	Owner      string     `yaml:"owner"`
-	Extensions Extensions `yaml:"extensions"`
+	Owner      string     `yaml:"Owner"`
+	Extensions extensions `yaml:"extensions"`
 	State      State      `yaml:"state"`
 }
 
-func NewDatabase(handler *Handler, name string, owner string) (d *Database) {
+// newDatabase can be used to create a new Database object
+func newDatabase(handler *Handler, name string, owner string) (d *Database) {
 	db, exists := handler.databases[name]
 	if exists {
 		if db.Owner != owner {
-			log.Debugf("Warning: DB %s already exists with different owner %s. CHanging to owner %s.", name,
+			log.Debugf("Warning: DB %s already exists with different Owner %s. Changing to Owner %s.", name,
 				db.Owner, owner)
 			db.Owner = owner
 		}
@@ -34,15 +37,15 @@ func NewDatabase(handler *Handler, name string, owner string) (d *Database) {
 		handler:    handler,
 		name:       name,
 		Owner:      owner,
-		Extensions: make(Extensions),
+		Extensions: make(extensions),
 	}
-	d.SetDefaults()
+	d.setDefaults()
 	handler.databases[name] = d
 	return d
 }
 
-// SetDefaults is called to set all defaults for databases created from yaml
-func (d *Database) SetDefaults() {
+// setDefaults is called to set all defaults for databases created from yaml
+func (d *Database) setDefaults() {
 	if d.Owner == "" {
 		d.Owner = d.name
 	}
@@ -52,17 +55,17 @@ func (d *Database) SetDefaults() {
 	}
 }
 
-func (d *Database) GetDbConnection() (c *Conn) {
+func (d *Database) getDbConnection() (c *Conn) {
 	if d.conn != nil {
 		return d.conn
 	}
 	// not yet initialized. Let's initialize
-	if d.handler.conn.DbName() == d.name {
+	if d.handler.conn.DBName() == d.name {
 		d.conn = d.handler.conn
 		return d.conn
 	}
 
-	connParams := make(map[string]string)
+	connParams := map[string]string{}
 	for key, value := range d.handler.conn.connParams {
 		connParams[key] = value
 	}
@@ -71,7 +74,7 @@ func (d *Database) GetDbConnection() (c *Conn) {
 	return d.conn
 }
 
-func (d *Database) Drop() (err error) {
+func (d *Database) drop() (err error) {
 	ph := d.handler
 	if !ph.strictOptions.Databases {
 		log.Infof("skipping drop of database %s (not running with strict option for databases", d.name)
@@ -86,13 +89,13 @@ func (d *Database) Drop() (err error) {
 		if err != nil {
 			return err
 		}
-		log.Infof("Database '%s' succesfully dropped", d.name)
+		log.Infof("Database '%s' successfully dropped", d.name)
 	}
 	d.State = Absent
 	return nil
 }
 
-func (d Database) Create() (err error) {
+func (d Database) create() (err error) {
 	ph := d.handler
 
 	exists, err := ph.conn.runQueryExists("SELECT datname FROM pg_database WHERE datname = $1", d.name)
@@ -104,9 +107,18 @@ func (d Database) Create() (err error) {
 		if err != nil {
 			return err
 		}
-		log.Infof("Database '%s' succesfully created", d.name)
+		log.Infof("Database '%s' successfully created", d.name)
 	}
-	exists, err = ph.conn.runQueryExists("SELECT datname FROM pg_database db inner join pg_roles rol on db.datdba = rol.oid WHERE datname = $1 and rolname = $2", d.name, d.Owner)
+	exists, err = ph.conn.runQueryExists(
+		`SELECT datname
+		FROM pg_database db
+		INNER JOIN pg_roles rol
+		ON db.datdba = rol.oid
+		WHERE datname = $1
+		AND rolname = $2`,
+		d.name,
+		d.Owner,
+	)
 	if err != nil {
 		return err
 	}
@@ -116,14 +128,17 @@ func (d Database) Create() (err error) {
 		if err != nil {
 			return err
 		}
-		// Then set owner
-		err = ph.conn.runQueryExec(fmt.Sprintf("ALTER DATABASE %s OWNER TO %s", identifier(d.name), identifier(d.Owner)))
+		// Then set Owner
+		err = ph.conn.runQueryExec(
+			fmt.Sprintf("ALTER DATABASE %s OWNER TO %s", identifier(d.name), identifier(d.Owner)),
+		)
 		if err != nil {
 			return err
 		}
-		log.Infof("Database owner succesfully altered to '%s' on '%s'", d.Owner, d.name)
+		log.Infof("Database Owner successfully altered to '%s' on '%s'",
+			d.Owner, d.name)
 	}
-	err = d.CreateOrDropExtensions()
+	err = d.createOrDropExtensions()
 	if err != nil {
 		return err
 	}
@@ -136,11 +151,11 @@ func (d Database) Create() (err error) {
 	if err != nil {
 		return err
 	}
-	return d.SetReadOnlyGrants(readOnlyRoleName)
+	return d.setReadOnlyGrants(readOnlyRoleName)
 }
 
-func (d Database) SetReadOnlyGrants(readOnlyRoleName string) (err error) {
-	c := d.GetDbConnection()
+func (d Database) setReadOnlyGrants(readOnlyRoleName string) (err error) {
+	c := d.getDbConnection()
 	err = c.Connect()
 	if err != nil {
 		return err
@@ -168,26 +183,29 @@ func (d Database) SetReadOnlyGrants(readOnlyRoleName string) (err error) {
 		if err != nil {
 			return err
 		}
-		log.Infof("Succesfully granted SELECT ON ALL TABLES in schema '%s' in DB '%s' to '%s'", schema, d.name, readOnlyRoleName)
+		log.Infof("successfully granted SELECT ON ALL TABLES in schema '%s' in DB '%s' to '%s'",
+			schema, d.name, readOnlyRoleName)
 	}
 	return nil
 }
 
-func (d *Database) AddExtension(name string, schema string, version string) (e *Extension, err error) {
-	e, err = NewExtension(d, name, schema, version)
+/*
+func (d *Database) addExtension(name string, schema string, version string) (e *extension, err error) {
+	e, err = newExtension(d, name, schema, version)
 	if err != nil {
 		return nil, err
 	}
 	d.Extensions[name] = e
 	return e, nil
 }
+*/
 
-func (d *Database) CreateOrDropExtensions() (err error) {
+func (d *Database) createOrDropExtensions() (err error) {
 	for _, e := range d.Extensions {
 		if e.State.Bool() {
-			err = e.Create()
+			err = e.create()
 		} else {
-			err = e.Drop()
+			err = e.drop()
 		}
 		if err != nil {
 			return err

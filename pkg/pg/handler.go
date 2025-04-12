@@ -1,23 +1,25 @@
 package pg
 
+// Handler holds all data for the Handle Method.
 type Handler struct {
 	conn          *Conn
 	strictOptions StrictOptions
 	databases     Databases
 	roles         Roles
-	slots         ReplicationSlots
+	slots         replicationSlots
 }
 
-func NewPgHandler(connParams Dsn, options StrictOptions, databases Databases, slots []string) (ph *Handler) {
+// NewPgHandler can be used to handle all PostgreSQL actions tha PgFga needs to undertake
+func NewPgHandler(connParams DSN, options StrictOptions, databases Databases, slots []string) (ph *Handler) {
 	ph = &Handler{
 		conn:          NewConn(connParams),
 		strictOptions: options,
 		databases:     databases,
 		roles:         make(Roles),
-		slots:         make(ReplicationSlots),
+		slots:         make(replicationSlots),
 	}
 	for _, slotName := range slots {
-		slot := NewSlot(ph, slotName)
+		slot := newSlot(ph, slotName)
 		ph.slots[slotName] = *slot
 	}
 	ph.setDefaults()
@@ -28,7 +30,7 @@ func (ph *Handler) setDefaults() {
 	for name, db := range ph.databases {
 		db.handler = ph
 		db.name = name
-		db.SetDefaults()
+		db.setDefaults()
 	}
 	for name, rs := range ph.slots {
 		rs.handler = ph
@@ -36,16 +38,18 @@ func (ph *Handler) setDefaults() {
 	}
 }
 
-func (ph *Handler) GetDb(dbName string) (d *Database) {
+func (ph *Handler) getDb(dbName string) (d *Database) {
 	// NewDatabase does everything we need to do
-	return NewDatabase(ph, dbName, "")
+	return newDatabase(ph, dbName, "")
 }
 
+// GetRole will get the requested role, creating it if needed.
 func (ph *Handler) GetRole(roleName string) (d *Role, err error) {
-	// NewDatabase does everything we need to do
-	return NewRole(ph, roleName, RoleOptions{}, Present)
+	// NewRole does everything we need to do
+	return NewRole(ph, roleName, RoleOptionMap{}, Present)
 }
 
+// GrantRole will grant a role to to another user / role
 func (ph *Handler) GrantRole(granteeName string, grantedName string) (err error) {
 	// NewDatabase does everything we need to do
 	grantee, err := ph.GetRole(granteeName)
@@ -59,12 +63,14 @@ func (ph *Handler) GrantRole(granteeName string, grantedName string) (err error)
 	return grantee.GrantRole(granted)
 }
 
+// CreateOrDropDatabases will create databases if needed, and (if strict option is enabled for databases) will drop
+// databases that should not exist.
 func (ph *Handler) CreateOrDropDatabases() (err error) {
 	for _, d := range ph.databases {
 		if d.State.Bool() {
-			err = d.Create()
+			err = d.create()
 		} else {
-			err = d.Drop()
+			err = d.drop()
 		}
 		if err != nil {
 			return err
@@ -73,28 +79,18 @@ func (ph *Handler) CreateOrDropDatabases() (err error) {
 	return nil
 }
 
+// CreateOrDropSlots will create database slots if needed, and (if strict option is enabled for databases) will drop
+// slots that should not exist.
 func (ph *Handler) CreateOrDropSlots() (err error) {
 	for _, d := range ph.slots {
 		if d.State.Bool() {
-			err = d.Create()
+			err = d.create()
 		} else {
-			err = d.Drop()
+			err = d.drop()
 		}
 		if err != nil {
 			return err
 		}
 	}
-	return nil
-}
-
-func (ph *Handler) StrictifyRoles() (err error) {
-	return nil
-}
-
-func (ph *Handler) StrictifyDatabases() (err error) {
-	return nil
-}
-
-func (ph *Handler) StrictifyExtensions() (err error) {
 	return nil
 }

@@ -2,11 +2,17 @@ package ldap
 
 import (
 	"encoding/base64"
-	"fmt"
+	"errors"
 	"os"
 	"os/exec"
 )
 
+const (
+	executableBits = 0o111
+)
+
+// Credential is a structure to configure a credential.
+// Credentials can be paased as a string, or from a file, and can be base64 encoded.
 type Credential struct {
 	Value  string `yaml:"value"`
 	File   string `yaml:"file"`
@@ -19,7 +25,7 @@ func isExecutable(filename string) (isExecutable bool, err error) {
 		return false, err
 	}
 	mode := fi.Mode()
-	return mode&0o111 == 0o111, nil
+	return mode&executableBits == executableBits, nil
 }
 
 func fromExecutable(filename string) (value string, err error) {
@@ -52,10 +58,11 @@ func fromFile(filename string) (value string, err error) {
 	return string(data[:]), nil
 }
 
+// GetCred is a method to retrieve the Credential, and return it's unencrypted string value (or an error).
 func (c *Credential) GetCred() (string, error) {
 	var err error
 	if c.Value == "" && c.File == "" {
-		return "", fmt.Errorf("either value or file must be set in a credential")
+		return "", errors.New("either value or file must be set in a credential")
 	}
 	if c.Value == "" {
 		if c.Value, err = fromFile(c.File); err != nil {
@@ -63,7 +70,7 @@ func (c *Credential) GetCred() (string, error) {
 		}
 	}
 	if c.Value == "" {
-		return "", fmt.Errorf("credential file is empty")
+		return "", errors.New("credential file is empty")
 	}
 	if c.Base64 {
 		data, err := base64.StdEncoding.DecodeString(c.Value)
@@ -73,7 +80,7 @@ func (c *Credential) GetCred() (string, error) {
 		c.Value = string(data)
 		c.Base64 = false
 		if c.Value == "" {
-			return "", fmt.Errorf("empty credential after base64 decryption")
+			return "", errors.New("empty credential after base64 decryption")
 		}
 	}
 	return c.Value, nil

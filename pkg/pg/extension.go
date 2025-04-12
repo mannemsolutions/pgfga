@@ -4,9 +4,9 @@ import (
 	"fmt"
 )
 
-type Extensions map[string]*Extension
+type extensions map[string]*extension
 
-type Extension struct {
+type extension struct {
 	// name and db are set by the database
 	db      *Database
 	name    string
@@ -15,8 +15,9 @@ type Extension struct {
 	Version string `yaml:"version"`
 }
 
-func NewExtension(db *Database, name string, schema string, version string) (e *Extension, err error) {
-	ext, exists := db.Extensions[name]
+/*
+func newExtension(db *Database, name string, schema string, version string) (e *extension, err error) {
+	ext, exists := db.extensions[name]
 	if exists {
 		if ext.Schema != e.Schema || e.Version != ext.Version {
 			return nil, fmt.Errorf("db %s already has extension %s defined, with different schema and/or version",
@@ -24,20 +25,21 @@ func NewExtension(db *Database, name string, schema string, version string) (e *
 		}
 		return ext, nil
 	}
-	e = &Extension{
+	e = &extension{
 		db:      db,
 		name:    name,
 		Schema:  schema,
 		Version: version,
 		State:   Present,
 	}
-	db.Extensions[name] = e
+	db.extensions[name] = e
 	return e, nil
 }
+*/
 
-func (e *Extension) Drop() (err error) {
+func (e *extension) drop() (err error) {
 	ph := e.db.handler
-	c := e.db.GetDbConnection()
+	c := e.db.getDbConnection()
 	if !e.db.handler.strictOptions.Extensions {
 		log.Infof("not dropping extension '%s'.'%s' (config.strict.roles is not True)", e.db.name, e.name)
 		return nil
@@ -51,18 +53,18 @@ func (e *Extension) Drop() (err error) {
 		return nil
 	}
 
-	dbConn := ph.GetDb(e.db.name).GetDbConnection()
+	dbConn := ph.getDb(e.db.name).getDbConnection()
 	err = dbConn.runQueryExec("DROP EXTENSION IF EXISTS " + identifier(e.name))
 	if err != nil {
 		return err
 	}
 	e.State = Absent
-	log.Infof("Extension '%s'.'%s' succesfully dropped.", e.db.name, e.name)
+	log.Infof("extension '%s'.'%s' successfully dropped.", e.db.name, e.name)
 	return nil
 }
 
-func (e Extension) Create() (err error) {
-	c := e.db.GetDbConnection()
+func (e extension) create() (err error) {
+	c := e.db.getDbConnection()
 	// First let's see if the extension and version is available
 	exists, err := c.runQueryExists("SELECT name FROM pg_available_extensions WHERE name = $1",
 		e.name)
@@ -96,7 +98,7 @@ func (e Extension) Create() (err error) {
 		if err != nil {
 			return err
 		}
-		log.Infof("Extension '%s'.'%s' succesfully created.", e.db.name, e.name)
+		log.Infof("extension '%s'.'%s' successfully created.", e.db.name, e.name)
 		return nil
 	}
 	if e.Version != "" {
@@ -106,11 +108,11 @@ func (e Extension) Create() (err error) {
 		}
 		if currentVersion != e.Version {
 			err = c.runQueryExec(fmt.Sprintf("ALTER EXTENSION %s UPDATE TO %s", identifier(e.name),
-				quotedSqlValue(e.Version)))
+				quotedSQLValue(e.Version)))
 			if err != nil {
 				return err
 			}
-			log.Infof("Extension '%s'.'%s' succesfully updated to version '%s'", e.db.name, e.name, e.Version)
+			log.Infof("extension '%s'.'%s' successfully updated to version '%s'", e.db.name, e.name, e.Version)
 		}
 	}
 	if e.Schema != "" {
@@ -123,11 +125,12 @@ func (e Extension) Create() (err error) {
 			return err
 		}
 		if currentSchema != e.Schema {
-			err = c.runQueryExec(fmt.Sprintf("ALTER EXTENSION %s SET SCHEMA %s", identifier(e.name), identifier(e.Schema)))
+			err = c.runQueryExec(fmt.Sprintf("ALTER EXTENSION %s SET SCHEMA %s",
+				identifier(e.name), identifier(e.Schema)))
 			if err != nil {
 				return err
 			}
-			log.Infof("Extension '%s'.'%s' succesfully moved to schema '%s'", e.db.name, e.name, e.Schema)
+			log.Infof("extension '%s'.'%s' successfully moved to schema '%s'", e.db.name, e.name, e.Schema)
 		}
 	}
 	return nil

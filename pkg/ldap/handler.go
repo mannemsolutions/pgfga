@@ -1,26 +1,28 @@
 package ldap
 
 import (
-	"fmt"
+	"errors"
 
 	"github.com/go-ldap/ldap/v3"
 )
 
+// Handler is the main struct that takes care of all heavy lifting
 type Handler struct {
 	config  Config
 	conn    *ldap.Conn
 	members Members
 }
 
+// NewLdapHandler can be used to instantiate a new Handler struct.
 func NewLdapHandler(config Config) (lh *Handler) {
-	config.SetDefaults()
+	config.setDefaults()
 	return &Handler{
 		config:  config,
 		members: make(Members),
 	}
 }
 
-func (lh *Handler) Connect() (err error) {
+func (lh *Handler) connect() (err error) {
 	if lh.conn != nil {
 		return nil
 	}
@@ -30,11 +32,11 @@ func (lh *Handler) Connect() (err error) {
 			if err != nil {
 				continue
 			}
-			user, err := lh.config.User()
+			user, err := lh.config.user()
 			if err != nil {
 				return err
 			}
-			pwd, err := lh.config.Password()
+			pwd, err := lh.config.password()
 			if err != nil {
 				return err
 			}
@@ -46,15 +48,16 @@ func (lh *Handler) Connect() (err error) {
 			return nil
 		}
 	}
-	return fmt.Errorf("none of the ldap servers are available")
+	return errors.New("none of the ldap servers are available")
 }
 
+// GetMembers can be used to get all ldap members of an LDAP group
 func (lh Handler) GetMembers(baseDN string, filter string) (baseGroup *Member, err error) {
-	err = lh.Connect()
+	err = lh.connect()
 	if err != nil {
 		return nil, err
 	}
-	baseGroup, err = lh.members.GetById(baseDN, true)
+	baseGroup, err = lh.members.GetByID(baseDN, true)
 	if err != nil {
 		return nil, err
 	}
@@ -66,18 +69,18 @@ func (lh Handler) GetMembers(baseDN string, filter string) (baseGroup *Member, e
 	}
 
 	for _, entry := range sr.Entries {
-		group, err := lh.members.GetById(entry.DN, true)
+		group, err := lh.members.GetByID(entry.DN, true)
 		if err != nil {
 			return nil, err
 		}
-		group.AddParent(baseGroup)
-		for _, memberUid := range entry.GetAttributeValues("memberUid") {
-			member, err := lh.members.GetById(memberUid, true)
+		group.addParent(baseGroup)
+		for _, memberUID := range entry.GetAttributeValues("memberUid") {
+			member, err := lh.members.GetByID(memberUID, true)
 			if err != nil {
 				return nil, err
 			}
-			member.AddParent(group)
-			err = member.SetMType(UserMType)
+			member.addParent(group)
+			err = member.setMType(userMType)
 			if err != nil {
 				return nil, err
 			}

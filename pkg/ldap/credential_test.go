@@ -12,6 +12,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	fileReadOnly = 0o0600
+)
+
 func TestCredential(t *testing.T) {
 	const myFirstValue = "myval1"
 	const mySecondValue = "myval2"
@@ -22,9 +26,9 @@ func TestCredential(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 	myCredFile := path.Join(tmpDir, "my-creds-file")
-	require.NoError(t, os.WriteFile(myCredFile, []byte(myFirstValue), 0o0600))
+	require.NoError(t, os.WriteFile(myCredFile, []byte(myFirstValue), fileReadOnly))
 	myB64CredFile := path.Join(tmpDir, "my-b64-creds-file")
-	require.NoError(t, os.WriteFile(myB64CredFile, []byte(myBase64EncryptedValue), 0o0600))
+	require.NoError(t, os.WriteFile(myB64CredFile, []byte(myBase64EncryptedValue), fileReadOnly))
 	for _, test := range []struct {
 		value    string
 		file     string

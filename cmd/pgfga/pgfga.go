@@ -1,15 +1,16 @@
+// Package main will hold the main function
 package main
 
 import (
 	"log"
 
-	"github.com/pgvillage-tools/pgfga/internal"
+	"github.com/pgvillage-tools/pgfga/internal/handler"
 )
 
 func main() {
-	internal.Initialize()
+	handler.Initialize()
 
-	fga, err := internal.NewPgFgaHandler()
+	fga, err := handler.NewPgFgaHandler()
 	if err != nil {
 		log.Fatalf("Error occurred on getting config: %e", err)
 	}

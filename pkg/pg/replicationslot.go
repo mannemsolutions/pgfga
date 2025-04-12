@@ -1,18 +1,18 @@
 package pg
 
-type ReplicationSlots map[string]ReplicationSlot
+type replicationSlots map[string]replicationSlot
 
-type ReplicationSlot struct {
+type replicationSlot struct {
 	handler *Handler
 	name    string
 	State   State `yaml:"state"`
 }
 
-func NewSlot(handler *Handler, name string) (rs *ReplicationSlot) {
+func newSlot(handler *Handler, name string) (rs *replicationSlot) {
 	if rs, exists := handler.slots[name]; exists {
 		return &rs
 	}
-	rs = &ReplicationSlot{
+	rs = &replicationSlot{
 		handler: handler,
 		name:    name,
 		State:   Present,
@@ -21,7 +21,7 @@ func NewSlot(handler *Handler, name string) (rs *ReplicationSlot) {
 	return rs
 }
 
-func (rs ReplicationSlot) Drop() (err error) {
+func (rs replicationSlot) drop() (err error) {
 	ph := rs.handler
 	if !ph.strictOptions.Slots {
 		log.Infof("skipping drop of replication slot %s (not running with strict option for slots", rs.name)
@@ -36,12 +36,12 @@ func (rs ReplicationSlot) Drop() (err error) {
 		if err != nil {
 			return err
 		}
-		log.Infof("Replication slot '%s' succesfully dropped", rs.name)
+		log.Infof("Replication slot '%s' successfully dropped", rs.name)
 	}
 	return nil
 }
 
-func (rs ReplicationSlot) Create() (err error) {
+func (rs replicationSlot) create() (err error) {
 	conn := rs.handler.conn
 
 	exists, err := conn.runQueryExists("SELECT slot_name FROM pg_replication_slots WHERE slot_name = $1", rs.name)

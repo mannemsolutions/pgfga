@@ -3,10 +3,11 @@ package pg
 import (
 	"context"
 	"fmt"
-	"github.com/jackc/pgx/v4"
 	"os"
 	"os/user"
 	"strings"
+
+	"github.com/jackc/pgx/v4"
 )
 
 type Conn struct {

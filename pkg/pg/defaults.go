@@ -1,7 +1,8 @@
 package pg
 
 var (
-	ProtectedRoles = map[string]bool{"aq_administrator_role": true,
+	ProtectedRoles = map[string]bool{
+		"aq_administrator_role":     true,
 		"enterprisedb":              true,
 		"postgres":                  true,
 		"pg_monitor":                true,
@@ -14,7 +15,8 @@ var (
 		"pg_execute_server_program": true,
 	}
 
-	ProtectedDatabases = map[string]bool{"postgres": true,
+	ProtectedDatabases = map[string]bool{
+		"postgres":  true,
 		"template0": true,
 		"template1": true,
 	}

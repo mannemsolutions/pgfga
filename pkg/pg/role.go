@@ -8,8 +8,9 @@ import (
 	// #nosec
 	"crypto/md5"
 	"fmt"
-	"github.com/jackc/pgx/v4"
 	"strings"
+
+	"github.com/jackc/pgx/v4"
 )
 
 type Roles map[string]Role
@@ -266,5 +267,4 @@ func (r Role) ResetExpiry() (err error) {
 		log.Infof("Succesfully reset expiry for user '%s'", r.name)
 	}
 	return nil
-
 }

@@ -3,6 +3,7 @@ package pg
 import (
 	"context"
 	"fmt"
+
 	"github.com/jackc/pgx/v4"
 )
 
@@ -40,7 +41,7 @@ func NewDatabase(handler *Handler, name string, owner string) (d *Database) {
 	return d
 }
 
-//SetDefaults is called to set all defaults for databases created from yaml
+// SetDefaults is called to set all defaults for databases created from yaml
 func (d *Database) SetDefaults() {
 	if d.Owner == "" {
 		d.Owner = d.name
@@ -72,7 +73,7 @@ func (d *Database) GetDbConnection() (c *Conn) {
 
 func (d *Database) Drop() (err error) {
 	ph := d.handler
-	if ! ph.strictOptions.Databases {
+	if !ph.strictOptions.Databases {
 		log.Infof("skipping drop of database %s (not running with strict option for databases", d.name)
 		return nil
 	}

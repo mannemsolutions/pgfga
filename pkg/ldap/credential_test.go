@@ -15,7 +15,7 @@ import (
 func TestCredential(t *testing.T) {
 	const myFirstValue = "myval1"
 	const mySecondValue = "myval2"
-	var myBase64EncryptedValue = base64.StdEncoding.EncodeToString([]byte(mySecondValue))
+	myBase64EncryptedValue := base64.StdEncoding.EncodeToString([]byte(mySecondValue))
 	tmpDir, err := os.MkdirTemp("", "Credential")
 	if err != nil {
 		panic(fmt.Errorf("unable to create temp dir: %w", err))
